@@ -1,5 +1,34 @@
+import { MINT_SIZE, TOKEN_PROGRAM_ID, createInitializeAccount2Instruction, createMint, getMinimumBalanceForRentExemptAccount } from "@solana/spl-token";
+import { Keypair, SystemProgram, Transaction } from "@solana/web3.js";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+
 export default function TokenLaunchpad() {
 
+  const wallet = useWallet();
+  const { connection } = useConnection();
+
+  async function createToken() {
+    const mintKeypair = Keypair.generate();
+    const lamports = await getMinimumBalanceForRentExemptAccount(connection);
+
+    const transaction = new Transaction().add(
+      SystemProgram.createAccount({
+        fromPubkey: wallet.publicKey,
+        newAccountPubkey: mintKeypair.publicKey,
+        space: MINT_SIZE,
+        lamports,
+        programId,
+      }),
+      createInitializeAccount2Instruction(mintKeypair.publicKey, 9, wallet.publicKey, wallet.publicKey, TOKEN_PROGRAM_ID)
+    );
+
+    transaction.feePayer = wallet.publicKey;
+    transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    transaction.partialSign(mintKeypair);
+
+    await wallet.sendTransaction(transaction, connection);
+    console.log(`Token mint created at ${mintKeypair.publicKey.toBase58()}`);
+  }
   return (
     <div
       className="flex flex-col justify-center items-center h-screen gap-4 
@@ -32,7 +61,8 @@ export default function TokenLaunchpad() {
         />
         <button type="button" class="text-white bg-blue-700 hover:bg-blue-800 
         focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2
-         dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">Create Token</button>
+         dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+        onClick={createToken}>Create Token</button>
 
       </div>
     </div>
